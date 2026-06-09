@@ -71,9 +71,11 @@ export default function DashboardPage() {
           { page: "1" },
         );
 
-        // Filtrar apenas reservas de hoje com status ativo
+        // Filtrar apenas reservas de hoje (ativas ou finalizadas)
         const todayActive = reservationsData.filter(
-          (r) => r.date === today && r.status === "active",
+          (r) =>
+            r.date === today &&
+            (r.status === "active" || r.status === "completed"),
         );
         setTodayReservations(todayActive);
 
@@ -123,6 +125,45 @@ export default function DashboardPage() {
         return String(participants.length);
       },
     },
+    {
+      key: "status",
+      header: "Status",
+      render: (row) => {
+        const status = row["status"] as string;
+        const label =
+          status === "active"
+            ? "Ativa"
+            : status === "completed"
+              ? "Finalizada"
+              : "Cancelada";
+        const color =
+          status === "active"
+            ? "#2e7d32"
+            : status === "completed"
+              ? "#1565c0"
+              : "#c62828";
+        const bg =
+          status === "active"
+            ? "#e8f5e9"
+            : status === "completed"
+              ? "#e3f2fd"
+              : "#fbe9e7";
+        return (
+          <span
+            style={{
+              padding: "0.2rem 0.5rem",
+              borderRadius: "10px",
+              fontSize: "0.75rem",
+              fontWeight: 600,
+              backgroundColor: bg,
+              color,
+            }}
+          >
+            {label}
+          </span>
+        );
+      },
+    },
   ];
 
   const roomColumns: Column<Record<string, unknown>>[] = [
@@ -146,7 +187,7 @@ export default function DashboardPage() {
   return (
     <div style={styles.container}>
       <h1 style={styles.welcome}>
-        {userName ? `Bem-vindo, ${userName}!` : "Bem-vindo!"}
+        {userName ? `Bem-vindo(a), ${userName}!` : "Bem-vindo(a)!"}
       </h1>
 
       {/* Botões de ação rápida */}

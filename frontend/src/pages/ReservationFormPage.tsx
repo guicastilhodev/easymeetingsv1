@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { apiGet, apiPost } from "../services/api";
 import TimeSlotPicker from "../components/TimeSlotPicker";
+import ParticipantsList from "../components/ParticipantsList";
 
 interface RoomOption {
   id: number;
@@ -51,7 +52,7 @@ export default function ReservationFormPage() {
   const [date, setDate] = useState<string>(searchParams.get("date") || "");
   const [startTime, setStartTime] = useState<string>("");
   const [endTime, setEndTime] = useState<string>("");
-  const [participantsText, setParticipantsText] = useState<string>("");
+  const [participants, setParticipants] = useState<string[]>([""]);
   const [errors, setErrors] = useState<FormErrors>({});
   const [conflictError, setConflictError] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -98,11 +99,8 @@ export default function ReservationFormPage() {
     fetchSchedule();
   }, [roomId, date]);
 
-  function parseParticipants(text: string): string[] {
-    return text
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
+  function parseParticipants(list: string[]): string[] {
+    return list.map((p) => p.trim()).filter((p) => p.length > 0);
   }
 
   function validate(): FormErrors {
@@ -133,21 +131,21 @@ export default function ReservationFormPage() {
         const [startH, startM] = startTime.split(":").map(Number);
         const [endH, endM] = endTime.split(":").map(Number);
         const durationMinutes = endH * 60 + endM - (startH * 60 + startM);
-        if (durationMinutes < 15) {
+        if (durationMinutes < 1) {
           newErrors.end_time = "A duração mínima da reserva é de 15 minutos.";
         }
       }
     }
 
-    const participants = parseParticipants(participantsText);
-    if (participants.length === 0) {
+    const parsedParticipants = parseParticipants(participants);
+    if (parsedParticipants.length === 0) {
       newErrors.participants = "Informe pelo menos 1 participante.";
-    } else if (participants.length > 50) {
+    } else if (parsedParticipants.length > 50) {
       newErrors.participants = "O máximo é de 50 participantes.";
     } else if (roomId) {
       const selectedRoom = rooms.find((r) => r.id === Number(roomId));
-      if (selectedRoom && participants.length > selectedRoom.capacity) {
-        newErrors.participants = `Número de participantes (${participants.length}) excede a capacidade da sala (${selectedRoom.capacity}).`;
+      if (selectedRoom && parsedParticipants.length > selectedRoom.capacity) {
+        newErrors.participants = `Número de participantes (${parsedParticipants.length}) excede a capacidade da sala (${selectedRoom.capacity}).`;
       }
     }
 
@@ -168,13 +166,13 @@ export default function ReservationFormPage() {
     setLoading(true);
 
     try {
-      const participants = parseParticipants(participantsText);
+      const parsedParticipants = parseParticipants(participants);
       await apiPost("/api/reservations", {
         room_id: Number(roomId),
         date,
         start_time: startTime,
         end_time: endTime,
-        participants,
+        participants: parsedParticipants,
       });
       navigate("/reservations");
     } catch (err: unknown) {
@@ -314,26 +312,17 @@ export default function ReservationFormPage() {
         </div>
 
         {/* Participantes */}
-        <div style={styles.field}>
-          <label htmlFor="participants" style={styles.label}>
-            Participantes (um por linha, de 1 a 50)
-          </label>
-          <textarea
-            id="participants"
-            value={participantsText}
-            onChange={(e) => setParticipantsText(e.target.value)}
-            style={styles.textarea}
-            placeholder={"João Silva\nMaria Souza\nCarlos Oliveira"}
-            rows={5}
-            disabled={loading}
-          />
-          {errors.participants && (
-            <span style={styles.fieldError}>{errors.participants}</span>
-          )}
-          <span style={styles.helperText}>
-            {parseParticipants(participantsText).length} participante(s)
-          </span>
-        </div>
+        <ParticipantsList
+          participants={participants}
+          onChange={setParticipants}
+          error={errors.participants}
+          disabled={loading}
+          maxParticipants={
+            roomId
+              ? (rooms.find((r) => r.id === Number(roomId))?.capacity ?? 50)
+              : 50
+          }
+        />
 
         {/* Botões */}
         <div style={styles.buttonRow}>
@@ -388,15 +377,6 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "4px",
     outline: "none",
   },
-  textarea: {
-    padding: "0.625rem 0.75rem",
-    fontSize: "1rem",
-    border: "1px solid #ccc",
-    borderRadius: "4px",
-    outline: "none",
-    resize: "vertical" as const,
-    fontFamily: "inherit",
-  },
   timeRow: {
     display: "flex",
     gap: "1rem",
@@ -404,10 +384,6 @@ const styles: Record<string, React.CSSProperties> = {
   fieldError: {
     fontSize: "0.8rem",
     color: "#d32f2f",
-  },
-  helperText: {
-    fontSize: "0.8rem",
-    color: "#666",
   },
   errorText: {
     color: "#d32f2f",

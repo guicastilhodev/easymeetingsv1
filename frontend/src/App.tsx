@@ -5,6 +5,7 @@ import RoomsPage from "./pages/RoomsPage";
 import RoomDetailPage from "./pages/RoomDetailPage";
 import ReservationsPage from "./pages/ReservationsPage";
 import ReservationFormPage from "./pages/ReservationFormPage";
+import ReservationEditPage from "./pages/ReservationEditPage";
 import HistoryPage from "./pages/HistoryPage";
 import UsersPage from "./pages/UsersPage";
 import RoomManagementPage from "./pages/RoomManagementPage";
@@ -76,6 +77,16 @@ function App() {
           <ProtectedRoute>
             <ProtectedLayout>
               <ReservationFormPage />
+            </ProtectedLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reservations/:id/edit"
+        element={
+          <ProtectedRoute>
+            <ProtectedLayout>
+              <ReservationEditPage />
             </ProtectedLayout>
           </ProtectedRoute>
         }

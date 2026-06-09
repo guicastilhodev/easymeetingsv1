@@ -24,6 +24,7 @@ interface ReservationCardProps {
   reservation: ReservationData;
   currentUserId: number;
   onCancel?: (id: number) => void;
+  onEdit?: (id: number) => void;
   onClick?: (id: number) => void;
 }
 
@@ -35,16 +36,25 @@ export default function ReservationCard({
   reservation,
   currentUserId,
   onCancel,
+  onEdit,
   onClick,
 }: ReservationCardProps) {
   const isActive = reservation.status === "active";
+  const isCompleted = reservation.status === "completed";
   const isOrganizer = reservation.organizer_id === currentUserId;
-  const canCancel = isActive && isOrganizer;
+  const canManage = isActive && isOrganizer;
 
   function handleCancelClick(e: React.MouseEvent) {
     e.stopPropagation();
     if (onCancel) {
       onCancel(reservation.id);
+    }
+  }
+
+  function handleEditClick(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (onEdit) {
+      onEdit(reservation.id);
     }
   }
 
@@ -66,11 +76,15 @@ export default function ReservationCard({
         <span
           style={{
             ...styles.statusBadge,
-            backgroundColor: isActive ? "#e8f5e9" : "#fbe9e7",
-            color: isActive ? "#2e7d32" : "#c62828",
+            backgroundColor: isActive
+              ? "#e8f5e9"
+              : isCompleted
+                ? "#e3f2fd"
+                : "#fbe9e7",
+            color: isActive ? "#2e7d32" : isCompleted ? "#1565c0" : "#c62828",
           }}
         >
-          {isActive ? "Ativa" : "Cancelada"}
+          {isActive ? "Ativa" : isCompleted ? "Finalizada" : "Cancelada"}
         </span>
       </div>
 
@@ -90,16 +104,28 @@ export default function ReservationCard({
         </p>
       </div>
 
-      {canCancel && onCancel && (
+      {canManage && (onEdit || onCancel) && (
         <div style={styles.actions}>
-          <button
-            type="button"
-            style={styles.cancelButton}
-            onClick={handleCancelClick}
-            aria-label="Cancelar reserva"
-          >
-            Cancelar
-          </button>
+          {onEdit && (
+            <button
+              type="button"
+              style={styles.editButton}
+              onClick={handleEditClick}
+              aria-label="Editar reserva"
+            >
+              Editar
+            </button>
+          )}
+          {onCancel && (
+            <button
+              type="button"
+              style={styles.cancelButton}
+              onClick={handleCancelClick}
+              aria-label="Cancelar reserva"
+            >
+              Cancelar
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -149,6 +175,17 @@ const styles: Record<string, CSSProperties> = {
     marginTop: "0.75rem",
     display: "flex",
     justifyContent: "flex-end",
+    gap: "0.5rem",
+  },
+  editButton: {
+    padding: "0.375rem 0.75rem",
+    fontSize: "0.8rem",
+    fontWeight: 500,
+    color: "#00A693",
+    backgroundColor: "#fff",
+    border: "1px solid #00A693",
+    borderRadius: "4px",
+    cursor: "pointer",
   },
   cancelButton: {
     padding: "0.375rem 0.75rem",

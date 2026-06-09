@@ -43,13 +43,12 @@ export default function ReservationsPage() {
     fetchReservations(page);
   }, [page, fetchReservations]);
 
-  function handleCardClick(id: number) {
-    // Navegar para detalhes (pode ser expandido futuramente)
-    const reservation = reservations.find((r) => r.id === id);
-    if (reservation) {
-      setCancelConfirmId(null);
-      // Exibir detalhes inline ou navegar — por ora, não há rota de detalhe separada
-    }
+  function handleCardClick(_id: number) {
+    // Sem rota de detalhe separada por ora
+  }
+
+  function handleEditRequest(id: number) {
+    navigate(`/reservations/${id}/edit`);
   }
 
   function handleCancelRequest(id: number) {
@@ -144,6 +143,7 @@ export default function ReservationsPage() {
                 key={reservation.id}
                 reservation={reservation}
                 currentUserId={user?.id ?? 0}
+                onEdit={handleEditRequest}
                 onCancel={handleCancelRequest}
                 onClick={handleCardClick}
               />
