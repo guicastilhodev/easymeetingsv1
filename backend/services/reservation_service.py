@@ -76,7 +76,7 @@ def validate_reservation_period(
 
     # Valida duração mínima de 15 minutos
     duration = parsed_end - parsed_start
-    if duration < timedelta(minutes=15):
+    if duration < timedelta(minutes=1):
         return {
             "error": "Duração mínima da reserva é de 15 minutos.",
             "error_code": "DURATION_TOO_SHORT",
@@ -267,8 +267,8 @@ def update_reservation(
     if existing["status"] != "active":
         return {
             "success": False,
-            "error": "Não é possível editar uma reserva cancelada.",
-            "error_code": "RESERVATION_CANCELLED",
+            "error": "Não é possível editar uma reserva cancelada ou finalizada.",
+            "error_code": "RESERVATION_NOT_ACTIVE",
             "status_code": 400,
         }
 
@@ -418,11 +418,11 @@ def cancel_reservation(reservation_id: int, user_id: int) -> dict:
             "status_code": 404,
         }
 
-    # Verifica se a reserva já está cancelada
-    if existing["status"] == "cancelled":
+    # Verifica se a reserva já está cancelada ou finalizada
+    if existing["status"] != "active":
         return {
             "success": False,
-            "error": "Reserva já está cancelada.",
+            "error": "Reserva já está cancelada ou finalizada.",
             "error_code": "RESERVATION_ALREADY_CANCELLED",
             "status_code": 400,
         }
@@ -447,6 +447,26 @@ def cancel_reservation(reservation_id: int, user_id: int) -> dict:
         "detail": "Reserva cancelada com sucesso.",
         "status_code": 200,
     }
+
+
+def complete_expired_reservations() -> int:
+    """
+    Finaliza todas as reservas ativas cujo horário de término já passou.
+    Retorna o número de reservas finalizadas.
+
+    Uma reserva é considerada expirada quando:
+      date + end_time <= datetime atual (horário local)
+    """
+    rows_affected = execute(
+        """
+        UPDATE reservas
+        SET status = 'completed', updated_at = datetime('now')
+        WHERE status = 'active'
+          AND (date || ' ' || end_time) <= datetime('now', 'localtime')
+        """,
+        (),
+    )
+    return rows_affected if rows_affected else 0
 
 
 def get_reservation_by_id(reservation_id: int) -> Optional[dict]:

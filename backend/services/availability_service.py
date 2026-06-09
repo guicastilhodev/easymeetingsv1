@@ -159,7 +159,7 @@ def _filter_by_resources(rooms: list[dict], resources: list[str]) -> list[dict]:
 def get_room_schedule(room_id: int, date: str) -> Optional[dict]:
     """
     Retorna a agenda de uma sala para uma data específica:
-    intervalos ocupados e intervalos disponíveis dentro do horário comercial.
+    intervalos ocupados e intervalos disponíveis ao longo do dia todo (00:00–23:59).
 
     Args:
         room_id: ID da sala.
@@ -168,6 +168,9 @@ def get_room_schedule(room_id: int, date: str) -> Optional[dict]:
     Returns:
         Dicionário com 'occupied' e 'available', ou None se a sala não existir.
     """
+    DAY_START = "00:00"
+    DAY_END = "23:59"
+
     # Verifica se a sala existe e está ativa
     room = fetch_one(
         "SELECT id, name FROM salas WHERE id = ? AND is_active = 1",
@@ -181,23 +184,20 @@ def get_room_schedule(room_id: int, date: str) -> Optional[dict]:
         """
         SELECT start_time, end_time
         FROM reservas
-        WHERE room_id = ? AND date = ? AND status = 'active'
+        WHERE room_id = ? AND date = ? AND status IN ('active', 'completed')
         ORDER BY start_time
         """,
         (room_id, date),
     )
 
-    # Calcula intervalos disponíveis
-    available = _calculate_available_slots(reservations)
+    # Monta lista de ocupados (dia todo)
+    occupied = [
+        {"start_time": r["start_time"], "end_time": r["end_time"]}
+        for r in reservations
+    ]
 
-    # Monta lista de ocupados (apenas dentro do horário comercial)
-    occupied = []
-    for reservation in reservations:
-        # Considera apenas a parte que intersecta com o horário comercial
-        start = max(reservation["start_time"], BUSINESS_START)
-        end = min(reservation["end_time"], BUSINESS_END)
-        if start < end:
-            occupied.append({"start_time": start, "end_time": end})
+    # Calcula intervalos disponíveis ao longo do dia todo
+    available = _calculate_available_slots_for_range(reservations, DAY_START, DAY_END)
 
     return {
         "room_id": room_id,
@@ -212,26 +212,38 @@ def get_room_schedule(room_id: int, date: str) -> Optional[dict]:
 def _calculate_available_slots(reservations: list[dict]) -> list[dict]:
     """
     Calcula intervalos livres dentro do horário comercial (08:00-18:00).
+    Mantida para uso interno de get_available_rooms.
+    """
+    return _calculate_available_slots_for_range(
+        reservations, BUSINESS_START, BUSINESS_END
+    )
+
+
+def _calculate_available_slots_for_range(
+    reservations: list[dict], range_start: str, range_end: str
+) -> list[dict]:
+    """
+    Calcula intervalos livres dentro de um intervalo arbitrário [range_start, range_end].
 
     Algoritmo:
     1. Ordena reservas por hora de início
     2. Percorre as reservas calculando gaps entre elas
-    3. Considera apenas o intervalo dentro do horário comercial
+    3. Considera apenas o intervalo dentro do range especificado
     """
     available = []
-    current_start = BUSINESS_START
+    current_start = range_start
 
     for reservation in reservations:
         res_start = reservation["start_time"]
         res_end = reservation["end_time"]
 
-        # Ignora reservas totalmente fora do horário comercial
-        if res_end <= BUSINESS_START or res_start >= BUSINESS_END:
+        # Ignora reservas totalmente fora do range
+        if res_end <= range_start or res_start >= range_end:
             continue
 
-        # Ajusta para limites do horário comercial
-        effective_start = max(res_start, BUSINESS_START)
-        effective_end = min(res_end, BUSINESS_END)
+        # Ajusta para limites do range
+        effective_start = max(res_start, range_start)
+        effective_end = min(res_end, range_end)
 
         if current_start < effective_start:
             available.append(
@@ -243,11 +255,11 @@ def _calculate_available_slots(reservations: list[dict]) -> list[dict]:
 
         current_start = max(current_start, effective_end)
 
-    if current_start < BUSINESS_END:
+    if current_start < range_end:
         available.append(
             {
                 "start_time": current_start,
-                "end_time": BUSINESS_END,
+                "end_time": range_end,
             }
         )
 
